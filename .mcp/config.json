@@ -1,0 +1,7 @@
+{
+    "name": "macos-vision-ocr",
+    "description": "OCR module using macOS Vision framework",
+    "entrypoint": "./ocrtool-mcp",
+    "version": "0.1.0",
+    "functions": ["ocr_text"]
+  }

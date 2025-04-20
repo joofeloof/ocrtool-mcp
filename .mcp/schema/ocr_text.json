@@ -1,0 +1,36 @@
+{
+    "name": "ocr_text",
+    "description": "Recognize text from image using Vision framework on macOS.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "image_path": { "type": "string" },
+        "lang": { "type": "string" },
+        "enhanced": { "type": "boolean" }
+      },
+      "required": ["image_path"]
+    },
+    "returns": {
+      "type": "object",
+      "properties": {
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": { "type": "string" },
+              "bbox": {
+                "type": "object",
+                "properties": {
+                  "x": { "type": "number" },
+                  "y": { "type": "number" },
+                  "width": { "type": "number" },
+                  "height": { "type": "number" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }

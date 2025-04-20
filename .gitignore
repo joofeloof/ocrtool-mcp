@@ -1,0 +1,25 @@
+# SwiftPM
+.build/
+Packages/
+.swiftpm/
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+*.lock
+
+# MCP plugins cache (if any)
+.mcp_plugins/
