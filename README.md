@@ -4,6 +4,8 @@
 
 **ocrtool-mcp** is an open-source macOS-native OCR module built with Swift and Vision framework, designed to comply with the [Model Context Protocol (MCP)](https://mcp-lang.org). It can be invoked by LLM tools like Cursor, Continue, OpenDevin, or custom agents using JSON-RPC over stdin.
 
+ocrtool-mcp is a macOS-native OCR tool that implements the stdin-based MCP module protocol, allowing LLM tools like Cursor or Continue to call it via JSON-RPC.
+
 ![platform](https://img.shields.io/badge/platform-macOS-blue)
 ![language](https://img.shields.io/badge/language-Swift-orange)
 ![mcp](https://img.shields.io/badge/MCP-compatible-brightgreen)
