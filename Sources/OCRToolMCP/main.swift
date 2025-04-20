@@ -13,6 +13,7 @@ struct OCRRequest: Codable {
     let comment: Bool? // New property
     let language: String? // New property
     let url: String? // New property
+    let base64: String? // New property
 }
 
 struct BoundingBox: Codable {
@@ -76,10 +77,37 @@ func handleOCR(_ request: OCRRequest) -> OCRResponse {
                 format: request.format,
                 comment: request.comment,
                 language: request.language,
-                url: nil
+                url: nil,
+                base64: nil
             ))
         } catch {
             fputs("❌ Failed to download or save image from URL: \(error.localizedDescription)\n", stderr)
+            return OCRResponse(lines: [])
+        }
+    }
+
+    if let base64String = request.base64, !base64String.isEmpty {
+        if let data = Data(base64Encoded: base64String) {
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+            do {
+                try data.write(to: tempURL)
+                fputs("🧬 Decoded base64 image to: \(tempURL.path)\n", stderr)
+                return handleOCR(OCRRequest(
+                    image_path: tempURL.path,
+                    lang: request.lang,
+                    enhanced: request.enhanced,
+                    format: request.format,
+                    comment: request.comment,
+                    language: request.language,
+                    url: nil,
+                    base64: nil
+                ))
+            } catch {
+                fputs("❌ Failed to write decoded base64 image: \(error.localizedDescription)\n", stderr)
+                return OCRResponse(lines: [])
+            }
+        } else {
+            fputs("❌ Invalid base64 image data.\n", stderr)
             return OCRResponse(lines: [])
         }
     }
@@ -202,9 +230,46 @@ func readLineData() -> Data? {
     return line.data(using: .utf8)
 }
 
+func showHelpAndExit() {
+    let helpText = """
+    OCRToolMCP Help - Parameters Overview:
+    
+    image / image_path : Path to the local image file (string)
+    url                : URL to download image (string)
+    base64             : Base64 encoded image (string)
+    lang               : OCR language(s), e.g., "en+zh" (string)
+    enhanced           : Use enhanced recognition (true/false)
+    format             : Output format (text, simple, table, markdown, auto, full, structured)
+    output.insertAsComment : If true, insert output as code comments
+    output.language    : Language style for comment output, e.g., python, swift, html
+    
+    JSON-RPC Method: "ocr_text"
+    
+    Example usage:
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "ocr_text",
+      "params": {
+        "image": "sample.jpg",
+        "lang": "en+zh",
+        "format": "markdown"
+      }
+    }
+    """
+    print(helpText)
+    exit(0)
+}
+
+if CommandLine.arguments.contains("--help") {
+    showHelpAndExit()
+}
+
 print("[ocrtool-mcp] Ready to accept JSON-RPC over stdin")
 
 while let inputData = readLineData() {
+    guard let inputStr = String(data: inputData, encoding: .utf8),
+          inputStr.trimmingCharacters(in: .whitespacesAndNewlines).first == "{" else { continue }
     let decoder = JSONDecoder()
     do {
         let flexible = try decoder.decode(JSONRPCRequestFlexible.self, from: inputData)
@@ -213,15 +278,16 @@ while let inputData = readLineData() {
             let imagePath = flexible.params["image"]?.string ?? flexible.params["image_path"]?.string ?? ""
             let hasImagePath = !imagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             let hasUrl = flexible.params["url"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-
-            if !hasImagePath && !hasUrl {
+            let hasBase64 = flexible.params["base64"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            
+            if [hasImagePath, hasUrl, hasBase64].filter({ $0 }).count != 1 {
                 fputs("""
                 {
                   "jsonrpc": "2.0",
                   "id": \(flexible.id.jsonStringEscaped),
                   "error": {
                     "code": -32602,
-                    "message": "Missing required parameter: provide either 'image'/'image_path' or 'url'."
+                    "message": "Exactly one of 'image'/'image_path', 'url', or 'base64' must be provided."
                   }
                 }
                 \n
@@ -277,7 +343,8 @@ while let inputData = readLineData() {
                 format: flexible.params["format"]?.string,
                 comment: flexible.params["output.insertAsComment"]?.bool,
                 language: flexible.params["output.language"]?.string,
-                url: flexible.params["url"]?.string
+                url: flexible.params["url"]?.string,
+                base64: flexible.params["base64"]?.string
             )
             let result = handleOCR(req)
             
@@ -362,7 +429,7 @@ while let inputData = readLineData() {
         }
     } catch {
         fputs("Decode error: \(error.localizedDescription)\n", stderr)
-        print("""
+        fputs("""
         {
           "jsonrpc": "2.0",
           "id": null,
@@ -373,6 +440,7 @@ while let inputData = readLineData() {
           }
         }
         \n
-        """)
+        """, stdout)
+        fflush(stdout)
     }
 }
