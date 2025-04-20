@@ -20,13 +20,14 @@ ocrtool-mcp is a macOS-native OCR tool that implements the stdin-based MCP modul
 - ✅ MCP-compatible JSON-RPC interface
 - ✅ Returns line-wise OCR results with bounding boxes (in pixels)
 - ✅ Lightweight, fast, and fully offline
+- ✅ Open source free software
 
----
+--- 
 
 ## 🚀 Quick Start
 
 ```bash
-git clone https://github.com/yourname/ocrtool-mcp.git
+git clone https://github.com/ihugang/ocrtool-mcp.git
 cd ocrtool-mcp
 swift build -c release
 ```

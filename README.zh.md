@@ -18,13 +18,14 @@
 - ✅ 提供标准 MCP JSON-RPC 接口
 - ✅ 返回包含像素坐标的逐行文字识别结果
 - ✅ 快速、轻量、离线运行
+- ✅ 开源免费软件
 
 ---
 
 ## 🚀 快速开始
 
 ```bash
-git clone https://github.com/yourname/ocrtool-mcp.git
+git clone https://github.com/ihugang/ocrtool-mcp.git
 cd ocrtool-mcp
 swift build -c release
 ```
