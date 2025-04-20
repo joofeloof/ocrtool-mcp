@@ -1,7 +1,100 @@
 {
     "name": "macos-vision-ocr",
     "description": "OCR module using macOS Vision framework",
-    "entrypoint": "./ocrtool-mcp",
     "version": "0.1.0",
-    "functions": ["ocr_text"]
+    "entrypoint": "./ocrtool-mcp",
+    "type": "mcp-module",
+    "platform": "macos",
+    "minOSVersion": "12.0.0",
+    "functions": [
+      {
+        "name": "ocr_text",
+        "description": "Perform OCR on image files",
+        "parameters": {
+          "image": {
+            "type": "string",
+            "description": "Path to image file or base64 encoded image"
+          },
+          "lang": {
+            "type": "string",
+            "description": "Language(s) to recognize",
+            "default": "zh+en",
+            "enum": ["zh", "en", "zh+en", "ja", "ko"]
+          },
+          "format": {
+            "type": "string",
+            "description": "Output format",
+            "default": "text",
+            "enum": ["text", "simple", "table", "markdown", "auto", "full", "structured"]
+          },
+          "enhanced": {
+            "type": "boolean",
+            "description": "Use enhanced recognition",
+            "default": true
+          },
+          "detect_orientation": {
+            "type": "boolean",
+            "description": "Auto detect text orientation",
+            "default": true
+          }
+        }
+      }
+    ],
+    "config": {
+      "timeout": 30000,
+      "maxFileSize": "10MB",
+      "supportedFormats": ["jpg", "jpeg", "png", "pdf", "tiff"],
+      "cache": {
+        "enabled": true,
+        "maxSize": "100MB",
+        "ttl": 3600
+      }
+    },
+    "cursor": {
+      "integration": {
+        "commands": [
+          {
+            "id": "ocr.fromSelection",
+            "title": "OCR: Recognize Selected Image",
+            "shortcut": "cmd+shift+o"
+          },
+          {
+            "id": "ocr.fromClipboard",
+            "title": "OCR: Recognize from Clipboard",
+            "shortcut": "cmd+shift+v"
+          }
+        ],
+        "contextMenu": true,
+        "statusBar": true
+      },
+      "output": {
+        "insertAsComment": true,
+        "supportedLanguages": ["python", "javascript", "typescript", "java"],
+        "variableNameTemplate": "ocr_result"
+      }
+    },
+    "dependencies": {
+      "required": ["Vision.framework"],
+      "optional": ["CoreML.framework"]
+    },
+    "author": {
+      "name": "Your Name",
+      "email": "your.email@example.com"
+    },
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/ihugang/ocrtool-mcp"
+    },
+    "bugs": {
+      "url": "https://github.com/ihugang/ocrtool-mcp/issues"
+    },
+    "keywords": [
+      "ocr",
+      "macos",
+      "vision",
+      "text-recognition",
+      "mcp",
+      "cursor"
+    ]
   }

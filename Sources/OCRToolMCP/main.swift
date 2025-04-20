@@ -10,6 +10,8 @@ struct OCRRequest: Codable {
     let lang: String?
     let enhanced: Bool?
     let format: String? // Renamed property
+    let comment: Bool? // New property
+    let language: String? // New property
 }
 
 struct BoundingBox: Codable {
@@ -41,6 +43,21 @@ struct OCRResponse: Codable {
             return "| \(line.text.replacingOccurrences(of: "|", with: "\\|")) | \(Int(b.x)) | \(Int(b.y)) | \(Int(b.width)) | \(Int(b.height)) |"
         }
         return ([header, separator] + rows).joined(separator: "\n")
+    }
+
+    func asCommented(language: String) -> String {
+        let prefix: String
+        switch language.lowercased() {
+        case "python", "shell", "bash":
+            prefix = "# "
+        case "cpp", "c++", "java", "swift", "go":
+            prefix = "// "
+        case "html", "xml":
+            return "<!--\n" + formattedOutput + "\n-->"
+        default:
+            prefix = "// "
+        }
+        return formattedOutput.split(separator: "\n").map { prefix + $0 }.joined(separator: "\n")
     }
 }
 
@@ -189,33 +206,40 @@ while let inputData = readLineData() {
                 image_path: fullPath,
                 lang: flexible.params["lang"]?.string ?? "zh+en",
                 enhanced: flexible.params["enhanced"]?.bool ?? true,
-                format: flexible.params["format"]?.string // Updated initialization
+                format: flexible.params["format"]?.string,
+                comment: flexible.params["output.insertAsComment"]?.bool,
+                language: flexible.params["output.language"]?.string
             )
             let result = handleOCR(req)
             
             // Updated conditional output check
-            switch req.format?.lowercased() {
-            case "text", "simple":
-                print(result.formattedOutput)
-            case "table", "markdown":
-                print(result.markdownTable)
-            case "auto":
-                if result.lines.count == 1 {
+            if req.comment == true {
+                let lang = req.language ?? "python"
+                print(result.asCommented(language: lang))
+            } else {
+                switch req.format?.lowercased() {
+                case "text", "simple":
                     print(result.formattedOutput)
-                } else {
+                case "table", "markdown":
                     print(result.markdownTable)
+                case "auto":
+                    if result.lines.count == 1 {
+                        print(result.formattedOutput)
+                    } else {
+                        print(result.markdownTable)
+                    }
+                case "full", "structured", .none:
+                    let response = JSONRPCResponse(jsonrpc: "2.0", id: flexible.id, result: result)
+                    let encoded = try JSONEncoder().encode(response)
+                    let prettyPrintedData = try JSONSerialization.jsonObject(with: encoded)
+                    let formattedJSON = try JSONSerialization.data(withJSONObject: prettyPrintedData, options: [.prettyPrinted])
+                    if let formattedStr = String(data: formattedJSON, encoding: .utf8) {
+                        print(formattedStr)
+                    }
+                default:
+                    fputs("Unknown format option: \(req.format ?? "nil")\n", stderr)
+                    print(result.formattedOutput)
                 }
-            case "full", "structured", .none:
-                let response = JSONRPCResponse(jsonrpc: "2.0", id: flexible.id, result: result)
-                let encoded = try JSONEncoder().encode(response)
-                let prettyPrintedData = try JSONSerialization.jsonObject(with: encoded)
-                let formattedJSON = try JSONSerialization.data(withJSONObject: prettyPrintedData, options: [.prettyPrinted])
-                if let formattedStr = String(data: formattedJSON, encoding: .utf8) {
-                    print(formattedStr)
-                }
-            default:
-                fputs("Unknown format option: \(req.format ?? "nil")\n", stderr)
-                print(result.formattedOutput)
             }
         } else {
             print("""
