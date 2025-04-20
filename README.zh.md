@@ -7,7 +7,7 @@
 ![platform](https://img.shields.io/badge/platform-macOS-blue)
 ![language](https://img.shields.io/badge/language-Swift-orange)
 ![mcp](https://img.shields.io/badge/MCP-compatible-brightgreen)
-![license](https://img.shields.io/github/license/yourname/ocrtool-mcp)
+![license](https://img.shields.io/github/license/ihugang/ocrtool-mcp)
 
 ---
 
@@ -86,6 +86,20 @@ swift build -c release
 - [Continue](https://github.com/continuedev/continue)
 - [Cursor](https://cursor.sh)
 - 自定义 LLM 工具链，只要支持 MCP JSON-RPC 调用即可
+
+### 🛠 Cursor 配置方式
+
+在 Cursor 编辑器中启用该 MCP 插件，请将以下内容添加到 `cursor.json` 文件中：
+
+```json
+{
+  "mcpServers": {
+    "ocrtool-mcp": {
+      "command": "具体路径.../ocrtool-mcp"
+    }
+  }
+}
+```
 
 ---
 

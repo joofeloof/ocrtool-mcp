@@ -9,7 +9,7 @@ ocrtool-mcp is a macOS-native OCR tool that implements the stdin-based MCP modul
 ![platform](https://img.shields.io/badge/platform-macOS-blue)
 ![language](https://img.shields.io/badge/language-Swift-orange)
 ![mcp](https://img.shields.io/badge/MCP-compatible-brightgreen)
-![license](https://img.shields.io/github/license/yourname/ocrtool-mcp)
+![license](https://img.shields.io/github/license/ihugang/ocrtool-mcp)
 
 ---
 
@@ -88,6 +88,20 @@ You can use this module with:
 - [Continue](https://github.com/continuedev/continue)
 - [Cursor](https://cursor.sh)
 - Any custom LLM agent that supports MCP stdin/stdout JSON-RPC
+
+### 🛠 Cursor Configuration
+
+To use this module in [Cursor](https://cursor.sh), add the following to your `cursor.json` file:
+
+```json
+{
+  "mcpServers": {
+    "ocrtool-mcp": {
+      "command": "Full path ... /ocrtool-mcp"
+    }
+  }
+}
+```
 
 ---
 
