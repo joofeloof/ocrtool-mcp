@@ -12,6 +12,7 @@ struct OCRRequest: Codable {
     let format: String? // Renamed property
     let comment: Bool? // New property
     let language: String? // New property
+    let url: String? // New property
 }
 
 struct BoundingBox: Codable {
@@ -62,6 +63,27 @@ struct OCRResponse: Codable {
 }
 
 func handleOCR(_ request: OCRRequest) -> OCRResponse {
+    if let urlString = request.url, let url = URL(string: urlString) {
+        do {
+            let data = try Data(contentsOf: url)
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+            try data.write(to: tempURL)
+            fputs("🔽 Downloaded image from URL to: \(tempURL.path)\n", stderr)
+            return handleOCR(OCRRequest(
+                image_path: tempURL.path,
+                lang: request.lang,
+                enhanced: request.enhanced,
+                format: request.format,
+                comment: request.comment,
+                language: request.language,
+                url: nil
+            ))
+        } catch {
+            fputs("❌ Failed to download or save image from URL: \(error.localizedDescription)\n", stderr)
+            return OCRResponse(lines: [])
+        }
+    }
+
     fputs("🖼️ Loading image at: \(request.image_path)\n", stderr)
     
     guard FileManager.default.fileExists(atPath: request.image_path) else {
@@ -108,7 +130,7 @@ func handleOCR(_ request: OCRRequest) -> OCRResponse {
 // JSON-RPC structure
 struct JSONRPCRequestFlexible: Codable {
     let jsonrpc: String
-    let id: String
+    let id: CodableValue
     let method: String
     let params: [String: CodableValue]
 }
@@ -116,6 +138,8 @@ struct JSONRPCRequestFlexible: Codable {
 enum CodableValue: Codable {
     case string(String)
     case bool(Bool)
+    case int(Int)
+    case object([String: CodableValue]) // New case
 
     var string: String? {
         if case .string(let str) = self { return str }
@@ -127,12 +151,30 @@ enum CodableValue: Codable {
         return nil
     }
 
+    var int: Int? {
+        if case .int(let i) = self { return i }
+        return nil
+    }
+
+    var jsonStringEscaped: String {
+        switch self {
+        case .string(let str): return "\"\(str)\""
+        case .int(let i): return String(i)
+        case .bool(let b): return b ? "true" : "false"
+        case .object(_): return "\"[object]\"" // Updated to handle .object
+        }
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let str = try? container.decode(String.self) {
             self = .string(str)
         } else if let bool = try? container.decode(Bool.self) {
             self = .bool(bool)
+        } else if let int = try? container.decode(Int.self) {
+            self = .int(int)
+        } else if let obj = try? container.decode([String: CodableValue].self) { // Support for nested objects
+            self = .object(obj)
         } else {
             throw DecodingError.typeMismatch(CodableValue.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid type"))
         }
@@ -143,13 +185,15 @@ enum CodableValue: Codable {
         switch self {
         case .string(let str): try container.encode(str)
         case .bool(let b): try container.encode(b)
+        case .int(let i): try container.encode(i)
+        case .object(let dict): try container.encode(dict) // Support for encoding .object
         }
     }
 }
 
 struct JSONRPCResponse: Codable {
     let jsonrpc: String
-    let id: String
+    let id: CodableValue
     let result: OCRResponse
 }
 
@@ -164,36 +208,60 @@ while let inputData = readLineData() {
     let decoder = JSONDecoder()
     do {
         let flexible = try decoder.decode(JSONRPCRequestFlexible.self, from: inputData)
-        if flexible.method == "ocr_text" {
+        switch flexible.method {
+        case "ocr_text":
             let imagePath = flexible.params["image"]?.string ?? flexible.params["image_path"]?.string ?? ""
-            if imagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                print("""
+            let hasImagePath = !imagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let hasUrl = flexible.params["url"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+
+            if !hasImagePath && !hasUrl {
+                fputs("""
                 {
                   "jsonrpc": "2.0",
-                  "id": "\(flexible.id)",
+                  "id": \(flexible.id.jsonStringEscaped),
                   "error": {
                     "code": -32602,
-                    "message": "Missing or empty required parameter: 'image' or 'image_path'",
-                    "hint": "Please provide a valid image file path as 'image' or 'image_path'."
+                    "message": "Missing required parameter: provide either 'image'/'image_path' or 'url'."
                   }
                 }
-                """)
+                \n
+                """, stdout)
+                fflush(stdout)
+                continue
+            }
+
+            if hasImagePath && hasUrl {
+                fputs("""
+                {
+                  "jsonrpc": "2.0",
+                  "id": \(flexible.id.jsonStringEscaped),
+                  "error": {
+                    "code": -32602,
+                    "message": "Conflicting parameters: use only one of 'image'/'image_path' or 'url'."
+                  }
+                }
+                \n
+                """, stdout)
+                fflush(stdout)
                 continue
             }
             
+            
             if let formatValue = flexible.params["format"]?.string,
                !["text", "simple", "table", "markdown", "auto", "full", "structured"].contains(formatValue.lowercased()) {
-                print("""
+                fputs("""
                 {
                   "jsonrpc": "2.0",
-                  "id": "\(flexible.id)",
+                  "id": \(flexible.id.jsonStringEscaped),
                   "error": {
                     "code": -32602,
                     "message": "Invalid value for 'format': '\(formatValue)'",
                     "hint": "Allowed values are: text, simple, table, markdown, auto, full, structured"
                   }
                 }
-                """)
+                \n
+                """, stdout)
+                fflush(stdout)
                 continue
             }
 
@@ -208,7 +276,8 @@ while let inputData = readLineData() {
                 enhanced: flexible.params["enhanced"]?.bool ?? true,
                 format: flexible.params["format"]?.string,
                 comment: flexible.params["output.insertAsComment"]?.bool,
-                language: flexible.params["output.language"]?.string
+                language: flexible.params["output.language"]?.string,
+                url: flexible.params["url"]?.string
             )
             let result = handleOCR(req)
             
@@ -234,24 +303,62 @@ while let inputData = readLineData() {
                     let prettyPrintedData = try JSONSerialization.jsonObject(with: encoded)
                     let formattedJSON = try JSONSerialization.data(withJSONObject: prettyPrintedData, options: [.prettyPrinted])
                     if let formattedStr = String(data: formattedJSON, encoding: .utf8) {
-                        print(formattedStr)
+                        fputs(formattedStr + "\n", stdout)
+                        fflush(stdout)
                     }
                 default:
                     fputs("Unknown format option: \(req.format ?? "nil")\n", stderr)
                     print(result.formattedOutput)
                 }
             }
-        } else {
-            print("""
+        case "initialize":
+            let response = """
             {
               "jsonrpc": "2.0",
-              "id": "\(flexible.id)",
+              "id": \(flexible.id.jsonStringEscaped),
+              "result": {
+                "protocolVersion": "2024-11-05",
+                "metadata": {
+                  "name": "ocrtool-mcp",
+                  "description": "Local macOS OCR tool using Vision Framework",
+                  "version": "0.1.0"
+                }
+              }
+            }
+            \n
+            """
+            fputs(response, stdout)
+            fflush(stdout)
+
+        case "shutdown":
+            let response = """
+            {
+              "jsonrpc": "2.0",
+              "id": \(flexible.id.jsonStringEscaped),
+              "result": null
+            }
+            \n
+            """
+            fputs(response, stdout)
+            fflush(stdout)
+            exit(0)
+
+        case "notifications/cancelled":
+            fputs("⚠️ Request cancelled (reason: timeout or interruption)\n", stderr)
+
+        default:
+            fputs("""
+            {
+              "jsonrpc": "2.0",
+              "id": \(flexible.id.jsonStringEscaped),
               "error": {
                 "code": -32601,
                 "message": "Method not found"
               }
             }
-            """)
+            \n
+            """, stdout)
+            fflush(stdout)
         }
     } catch {
         fputs("Decode error: \(error.localizedDescription)\n", stderr)
@@ -265,6 +372,7 @@ while let inputData = readLineData() {
             "details": "\(error.localizedDescription)"
           }
         }
+        \n
         """)
     }
 }
