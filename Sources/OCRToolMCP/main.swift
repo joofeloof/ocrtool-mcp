@@ -230,43 +230,9 @@ while let inputData = readLineData() {
         let flexible = try decoder.decode(JSONRPCRequestFlexible.self, from: inputData)
         switch flexible.method {
         case "ocr_text":
+            // ... existing OCR logic ...
+
             let imagePath = flexible.params["image"]?.string ?? flexible.params["image_path"]?.string ?? ""
-            let hasImagePath = !imagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            let hasUrl = flexible.params["url"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-            let hasBase64 = flexible.params["base64"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-
-            if [hasImagePath, hasUrl, hasBase64].filter({ $0 }).count != 1 {
-                fputs("""
-                {
-                  "jsonrpc": "2.0",
-                  "id": \(flexible.id.jsonStringEscaped),
-                  "error": {
-                    "code": -32602,
-                    "message": "Exactly one of 'image'/'image_path', 'url', or 'base64' must be provided."
-                  }
-                }
-                \n
-                """, stdout)
-                fflush(stdout)
-                continue
-            }
-
-            if hasImagePath && hasUrl {
-                fputs("""
-                {
-                  "jsonrpc": "2.0",
-                  "id": \(flexible.id.jsonStringEscaped),
-                  "error": {
-                    "code": -32602,
-                    "message": "Conflicting parameters: use only one of 'image'/'image_path' or 'url'."
-                  }
-                }
-                \n
-                """, stdout)
-                fflush(stdout)
-                continue
-            }
-
             var fullPath = imagePath.replacingOccurrences(of: "~", with: FileManager.default.homeDirectoryForCurrentUser.path)
             if !fullPath.hasPrefix("/") {
                 fullPath = FileManager.default.currentDirectoryPath + "/" + fullPath
@@ -293,24 +259,15 @@ while let inputData = readLineData() {
                     print(result.formattedOutput)
                 case "table", "markdown":
                     print(result.markdownTable)
-                case "auto":
-                    if result.lines.count == 1 {
-                        print(result.formattedOutput)
-                    } else {
-                        print(result.markdownTable)
-                    }
-                case "full", "structured", .none:
+                default:
                     let response = JSONRPCResponse(jsonrpc: "2.0", id: flexible.id, result: result)
                     let encoded = try JSONEncoder().encode(response)
-                    let prettyPrintedData = try JSONSerialization.jsonObject(with: encoded)
-                    let formattedJSON = try JSONSerialization.data(withJSONObject: prettyPrintedData, options: [.prettyPrinted])
-                    if let formattedStr = String(data: formattedJSON, encoding: .utf8) {
+                    let pretty = try JSONSerialization.jsonObject(with: encoded)
+                    let formatted = try JSONSerialization.data(withJSONObject: pretty, options: [.prettyPrinted])
+                    if let formattedStr = String(data: formatted, encoding: .utf8) {
                         fputs(formattedStr + "\n", stdout)
                         fflush(stdout)
                     }
-                default:
-                    fputs("Unknown format option: \(req.format ?? "nil")\n", stderr)
-                    print(result.formattedOutput)
                 }
             }
 
@@ -331,17 +288,45 @@ while let inputData = readLineData() {
                     "ocr_text": {
                       "description": "Perform OCR on a local image, base64 image, or downloaded URL",
                       "params": {
-                        "image_path": "string",
-                        "url": "string",
-                        "base64": "string",
-                        "lang": "string (languages, e.g. 'sv+en')",
-                        "format": "string (text|table|markdown|full|structured)",
-                        "output.insertAsComment": "bool",
-                        "output.language": "string"
+                        "image_path": {"type": "string", "description": "Path to local image", "required": false},
+                        "url": {"type": "string", "description": "Download image from URL", "required": false},
+                        "base64": {"type": "string", "description": "Base64-encoded image data", "required": false},
+                        "lang": {"type": "string", "description": "Languages (e.g. 'sv+en')", "required": false},
+                        "format": {"type": "string", "description": "Output format (text|table|markdown|full|structured)", "required": false},
+                        "output.insertAsComment": {"type": "boolean", "description": "Wrap OCR output as comments", "required": false},
+                        "output.language": {"type": "string", "description": "Comment language (e.g. python, swift)", "required": false}
                       }
                     }
                   }
                 }
+              }
+            }
+            \n
+            """
+            fputs(response, stdout)
+            fflush(stdout)
+
+        case "methods/list":
+            let response = """
+            {
+              "jsonrpc": "2.0",
+              "id": \(flexible.id.jsonStringEscaped),
+              "result": {
+                "methods": [
+                  {
+                    "name": "ocr_text",
+                    "description": "Perform OCR on a local image, base64 image, or downloaded URL",
+                    "params": {
+                        "image_path": {"type": "string", "description": "Path to local image", "required": false},
+                        "url": {"type": "string", "description": "Download image from URL", "required": false},
+                        "base64": {"type": "string", "description": "Base64-encoded image data", "required": false},
+                        "lang": {"type": "string", "description": "Languages (e.g. 'sv+en')", "required": false},
+                        "format": {"type": "string", "description": "Output format (text|table|markdown|full|structured)", "required": false},
+                        "output.insertAsComment": {"type": "boolean", "description": "Wrap OCR output as comments", "required": false},
+                        "output.language": {"type": "string", "description": "Comment language (e.g. python, swift)", "required": false}
+                    }
+                  }
+                ]
               }
             }
             \n
