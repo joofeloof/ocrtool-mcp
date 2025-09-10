@@ -9,11 +9,11 @@ struct OCRRequest: Codable {
     let image_path: String
     let lang: String?
     let enhanced: Bool?
-    let format: String? // Renamed property
-    let comment: Bool? // New property
-    let language: String? // New property
-    let url: String? // New property
-    let base64: String? // New property
+    let format: String?
+    let comment: Bool?
+    let language: String?
+    let url: String?
+    let base64: String?
 }
 
 struct BoundingBox: Codable {
@@ -31,7 +31,6 @@ struct OCRLine: Codable {
 struct OCRResponse: Codable {
     let lines: [OCRLine]
     
-    // New property for output formatting customization
     var formattedOutput: String {
         return lines.map { $0.text }.joined(separator: "\n")
     }
@@ -155,7 +154,7 @@ func handleOCR(_ request: OCRRequest) -> OCRResponse {
     return OCRResponse(lines: results)
 }
 
-// JSON-RPC structure
+// JSON-RPC structures
 struct JSONRPCRequestFlexible: Codable {
     let jsonrpc: String
     let id: CodableValue
@@ -167,54 +166,45 @@ enum CodableValue: Codable {
     case string(String)
     case bool(Bool)
     case int(Int)
-    case object([String: CodableValue]) // New case
+    case object([String: CodableValue])
 
     var string: String? {
         if case .string(let str) = self { return str }
         return nil
     }
-
     var bool: Bool? {
         if case .bool(let b) = self { return b }
         return nil
     }
-
     var int: Int? {
         if case .int(let i) = self { return i }
         return nil
     }
-
     var jsonStringEscaped: String {
         switch self {
         case .string(let str): return "\"\(str)\""
         case .int(let i): return String(i)
         case .bool(let b): return b ? "true" : "false"
-        case .object(_): return "\"[object]\"" // Updated to handle .object
+        case .object(_): return "\"[object]\""
         }
     }
-
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        if let str = try? container.decode(String.self) {
-            self = .string(str)
-        } else if let bool = try? container.decode(Bool.self) {
-            self = .bool(bool)
-        } else if let int = try? container.decode(Int.self) {
-            self = .int(int)
-        } else if let obj = try? container.decode([String: CodableValue].self) { // Support for nested objects
-            self = .object(obj)
-        } else {
+        if let str = try? container.decode(String.self) { self = .string(str) }
+        else if let bool = try? container.decode(Bool.self) { self = .bool(bool) }
+        else if let int = try? container.decode(Int.self) { self = .int(int) }
+        else if let obj = try? container.decode([String: CodableValue].self) { self = .object(obj) }
+        else {
             throw DecodingError.typeMismatch(CodableValue.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid type"))
         }
     }
-
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
         case .string(let str): try container.encode(str)
         case .bool(let b): try container.encode(b)
         case .int(let i): try container.encode(i)
-        case .object(let dict): try container.encode(dict) // Support for encoding .object
+        case .object(let dict): try container.encode(dict)
         }
     }
 }
@@ -228,41 +218,6 @@ struct JSONRPCResponse: Codable {
 func readLineData() -> Data? {
     guard let line = readLine(strippingNewline: true) else { return nil }
     return line.data(using: .utf8)
-}
-
-func showHelpAndExit() {
-    let helpText = """
-    OCRToolMCP Help - Parameters Overview:
-    
-    image / image_path : Path to the local image file (string)
-    url                : URL to download image (string)
-    base64             : Base64 encoded image (string)
-    lang               : OCR language(s), e.g., "en+sv" (string)
-    enhanced           : Use enhanced recognition (true/false)
-    format             : Output format (text, simple, table, markdown, auto, full, structured)
-    output.insertAsComment : If true, insert output as code comments
-    output.language    : Language style for comment output, e.g., python, swift, html
-    
-    JSON-RPC Method: "ocr_text"
-    
-    Example usage:
-    {
-      "jsonrpc": "2.0",
-      "id": 1,
-      "method": "ocr_text",
-      "params": {
-        "image": "sample.jpg",
-        "lang": "en+sv",
-        "format": "markdown"
-      }
-    }
-    """
-    print(helpText)
-    exit(0)
-}
-
-if CommandLine.arguments.contains("--help") {
-    showHelpAndExit()
 }
 
 print("[ocrtool-mcp] Ready to accept JSON-RPC over stdin")
@@ -279,7 +234,7 @@ while let inputData = readLineData() {
             let hasImagePath = !imagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             let hasUrl = flexible.params["url"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
             let hasBase64 = flexible.params["base64"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-            
+
             if [hasImagePath, hasUrl, hasBase64].filter({ $0 }).count != 1 {
                 fputs("""
                 {
@@ -311,25 +266,6 @@ while let inputData = readLineData() {
                 fflush(stdout)
                 continue
             }
-            
-            
-            if let formatValue = flexible.params["format"]?.string,
-               !["text", "simple", "table", "markdown", "auto", "full", "structured"].contains(formatValue.lowercased()) {
-                fputs("""
-                {
-                  "jsonrpc": "2.0",
-                  "id": \(flexible.id.jsonStringEscaped),
-                  "error": {
-                    "code": -32602,
-                    "message": "Invalid value for 'format': '\(formatValue)'",
-                    "hint": "Allowed values are: text, simple, table, markdown, auto, full, structured"
-                  }
-                }
-                \n
-                """, stdout)
-                fflush(stdout)
-                continue
-            }
 
             var fullPath = imagePath.replacingOccurrences(of: "~", with: FileManager.default.homeDirectoryForCurrentUser.path)
             if !fullPath.hasPrefix("/") {
@@ -347,8 +283,7 @@ while let inputData = readLineData() {
                 base64: flexible.params["base64"]?.string
             )
             let result = handleOCR(req)
-            
-            // Updated conditional output check
+
             if req.comment == true {
                 let lang = req.language ?? "python"
                 print(result.asCommented(language: lang))
@@ -378,6 +313,7 @@ while let inputData = readLineData() {
                     print(result.formattedOutput)
                 }
             }
+
         case "initialize":
             let response = """
             {
@@ -393,15 +329,15 @@ while let inputData = readLineData() {
                 "capabilities": {
                   "methods": {
                     "ocr_text": {
-                      "description": "Perform OCR on a local image, base64 image, or path.",
+                      "description": "Perform OCR on a local image, base64 image, or downloaded URL",
                       "params": {
-                        "image_path": "string (path to file)",
-                        "url": "string (optional, fetch image from URL)",
-                        "base64": "string (optional, base64 image data)",
+                        "image_path": "string",
+                        "url": "string",
+                        "base64": "string",
                         "lang": "string (languages, e.g. 'sv+en')",
                         "format": "string (text|table|markdown|full|structured)",
-                        "output.insertAsComment": "bool (wrap OCR output as code comments)",
-                        "output.language": "string (comment language, e.g. 'python', 'swift')"
+                        "output.insertAsComment": "bool",
+                        "output.language": "string"
                       }
                     }
                   }
@@ -426,9 +362,6 @@ while let inputData = readLineData() {
             fflush(stdout)
             exit(0)
 
-        case "notifications/cancelled":
-            fputs("⚠️ Request cancelled (reason: timeout or interruption)\n", stderr)
-
         default:
             fputs("""
             {
@@ -445,18 +378,5 @@ while let inputData = readLineData() {
         }
     } catch {
         fputs("Decode error: \(error.localizedDescription)\n", stderr)
-        fputs("""
-        {
-          "jsonrpc": "2.0",
-          "id": null,
-          "error": {
-            "code": -32602,
-            "message": "Invalid request: Ensure JSON is complete and contains fields like 'method' and 'params'.",
-            "details": "\(error.localizedDescription)"
-          }
-        }
-        \n
-        """, stdout)
-        fflush(stdout)
     }
 }
