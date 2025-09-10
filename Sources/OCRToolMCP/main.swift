@@ -144,7 +144,7 @@ func handleOCR(_ request: OCRRequest) -> OCRResponse {
 
     req.recognitionLevel = .accurate
     req.usesLanguageCorrection = true
-    req.recognitionLanguages = request.lang?.components(separatedBy: "+") ?? ["zh-Hans", "en-US"]
+    req.recognitionLanguages = request.lang?.components(separatedBy: "+") ?? ["sv-SE", "en-US"]
 
     do {
         try handler.perform([req])
@@ -237,7 +237,7 @@ func showHelpAndExit() {
     image / image_path : Path to the local image file (string)
     url                : URL to download image (string)
     base64             : Base64 encoded image (string)
-    lang               : OCR language(s), e.g., "en+zh" (string)
+    lang               : OCR language(s), e.g., "en+sv" (string)
     enhanced           : Use enhanced recognition (true/false)
     format             : Output format (text, simple, table, markdown, auto, full, structured)
     output.insertAsComment : If true, insert output as code comments
@@ -252,7 +252,7 @@ func showHelpAndExit() {
       "method": "ocr_text",
       "params": {
         "image": "sample.jpg",
-        "lang": "en+zh",
+        "lang": "en+sv",
         "format": "markdown"
       }
     }
@@ -338,7 +338,7 @@ while let inputData = readLineData() {
 
             let req = OCRRequest(
                 image_path: fullPath,
-                lang: flexible.params["lang"]?.string ?? "zh+en",
+                lang: flexible.params["lang"]?.string ?? "sv+en",
                 enhanced: flexible.params["enhanced"]?.bool ?? true,
                 format: flexible.params["format"]?.string,
                 comment: flexible.params["output.insertAsComment"]?.bool,
