@@ -389,6 +389,22 @@ while let inputData = readLineData() {
                   "name": "ocrtool-mcp",
                   "description": "Local macOS OCR tool using Vision Framework",
                   "version": "0.1.0"
+                },
+                "capabilities": {
+                  "methods": {
+                    "ocr_text": {
+                      "description": "Perform OCR on a local image, base64 image, or path.",
+                      "params": {
+                        "image_path": "string (path to file)",
+                        "url": "string (optional, fetch image from URL)",
+                        "base64": "string (optional, base64 image data)",
+                        "lang": "string (languages, e.g. 'sv+en')",
+                        "format": "string (text|table|markdown|full|structured)",
+                        "output.insertAsComment": "bool (wrap OCR output as code comments)",
+                        "output.language": "string (comment language, e.g. 'python', 'swift')"
+                      }
+                    }
+                  }
                 }
               }
             }
