@@ -19,7 +19,7 @@
             "type": "string",
             "description": "Language(s) to recognize",
             "default": "zh+en",
-            "enum": ["zh", "en", "zh+en", "ja", "ko"]
+            "enum": ["zh", "en", "zh+en", "ja", "ko", "sv", "sv+en"]
           },
           "format": {
             "type": "string",
