@@ -6,7 +6,7 @@ from collections import Counter
 
 # 配置
 DESKTOP = os.path.expanduser("~/Desktop")
-OCR_TOOL = "/Users/shrek/Downloads/Dev/2025/Swift/ocrit-mcp/ocrtool-mcp"
+OCR_TOOL = DESKTOP + "/ocrit-mcp/ocrtool-mcp"
 IMG_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tiff")
 
 def is_garbled(filename):
@@ -14,12 +14,12 @@ def is_garbled(filename):
     name, _ = os.path.splitext(filename)
     if re.fullmatch(r'[A-Za-z0-9\-_\.]+', name) and len(name) > 8:
         return True
-    if re.search(r'[^A-Za-z0-9\u4e00-\u9fa5]', name) and not re.search(r'[\u4e00-\u9fa5A-Za-z]', name):
+    if re.search(r'[^A-Za-zÅÄÖåäö0-9_]', name) and not re.search(r'[^A-Za-zÅÄÖåäö0-9_]', name):
         return True
     return False
 
 def ocr_image(image_path):
-    print(f"OCR识别图片: {image_path}")
+    print(f"OCR Ident of images: {image_path}")
     # 构造 jsonrpc 请求
     json_rpc = json.dumps({
         "jsonrpc": "2.0",
@@ -28,7 +28,7 @@ def ocr_image(image_path):
         "params": {
             "image": os.path.expanduser(image_path),
             "format": "structured",
-            "lang": "zh+en",
+            "lang": "sv+en",
             "detect_orientation": True
         }
     })
@@ -47,12 +47,12 @@ def ocr_image(image_path):
         else:
             result = json.loads(raw_output)
         
-        print("识别到的文本：", result)
+        print("Identified text：", result)
         lines = result.get("result", {}).get("lines", [])
-        print("识别到的文本行：", lines)
+        print("Identified Text lines：", lines)
         return lines
     except Exception as e:
-        print("解析OCR结果出错：", e)
+        print("Analysis of ocr results is wrong：", e)
         return []
 
 def pick_best_text_by_height(lines):
@@ -64,23 +64,23 @@ def pick_best_text_by_height(lines):
 
 def safe_filename(s, ext):
     # 只保留中英文、数字、下划线，空格变下划线
-    s = re.sub(r'[^\u4e00-\u9fa5A-Za-z0-9_ ]', '', s)
+    s = re.sub(r'[^A-Za-zÅÄÖåäö0-9_ ]', '', s)
     s = s.strip().replace(' ', '_')
     return s[:30] + ext  # 文件名最长30字符    
 
 def main():
     files = [f for f in os.listdir(DESKTOP) if f.lower().endswith(IMG_EXTS)]
     garbled_files = [f for f in files if is_garbled(f)]
-    print(f"检测到疑似乱码图片文件：{garbled_files}")
+    print(f"detect suspicious and garbled files：{garbled_files}")
 
     for fname in garbled_files:
         img_path = os.path.join(DESKTOP, fname)
-        print(f"\n处理图片: {img_path}")
+        print(f"\n Dealing with pictures: {img_path}")
         lines = ocr_image(img_path)
         best = pick_best_text_by_height(lines)
-        print("选中的最大高度段落：", best)
+        print("Max height paragraph selected：", best)
         if not best:
-            print(f"{fname} 未识别到有效文字，跳过")
+            print(f"{fname} unidentified as valid text，skipping")
             continue
 
         ext = os.path.splitext(fname)[1]
